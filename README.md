@@ -6,7 +6,7 @@ This detailed guide explains how to set up **ROS2 Humble** with Docker on a host
 
 ## Prerequisites
 
-* **Host OS:** Linux (Ubuntu / Linux Mint recommended)
+* **Host OS:** Linux (Ubuntu / Linux Mint tested)
 * **VirtualBox VM:** Ubuntu 22.04
 * **ROS2 Humble:** Installed on VM
 * **Docker & Docker Compose:** Installed on host
