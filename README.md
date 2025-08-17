@@ -1,33 +1,34 @@
-# ROS2 Docker + VM Multi-Device Setup
+# ROS2 Humble Docker + VM Multi-Device Setup
 
-This guide helps you set up **ROS2 Humble** with Docker on a host system and Ubuntu VM, enabling multi-device communication via DDS.
+This detailed guide explains how to set up **ROS2 Humble** with Docker on a host Linux system and an Ubuntu VirtualBox VM, enabling seamless multi-device communication via DDS. It covers workspace setup, Docker Compose configuration, network setup, firewall, and quick launch scripts.
 
 ---
 
 ## Prerequisites
 
-* **Host System:** Linux (tested on Linux Mint / Ubuntu)
-* **Docker:** Installed
-* **Docker Compose:** Installed (`docker-compose version 1.29.2` or higher)
-* **VirtualBox VM:** Ubuntu 22.04 with ROS2 Humble installed
-* **Network:** Devices on the same subnet (bridged adapter recommended)
+* **Host OS:** Linux (Ubuntu / Linux Mint recommended)
+* **VirtualBox VM:** Ubuntu 22.04
+* **ROS2 Humble:** Installed on VM
+* **Docker & Docker Compose:** Installed on host
+* **Network:** Devices on same subnet (Bridged Adapter recommended)
+* **Firewall:** UFW installed and optionally configured
 
 ---
 
-## Docker Setup
+## 1️⃣ Docker Setup on Host
 
-### 1️⃣ Directory Structure
+### 1.1 Directory Structure
 
 ```bash
 mkdir -p ~/ros2_setup/ros2_ws/src
 cd ~/ros2_setup
 ```
 
-* `ros2_ws` will be the ROS2 workspace mounted inside Docker.
+* `ros2_ws` will be the workspace mounted inside the Docker container.
 
-### 2️⃣ Docker Compose File
+### 1.2 Docker Compose File
 
-Create `docker-compose.yaml`:
+Create a file `docker-compose.yaml` in `~/ros2_setup`:
 
 ```yaml
 version: "3.9"
@@ -36,15 +37,15 @@ services:
   ros2-desktop:
     image: osrf/ros:humble-desktop
     container_name: ros2-desktop
-    network_mode: "host"        # Required for ROS2 DDS discovery
+    network_mode: "host"  # Needed for ROS2 DDS discovery
     ipc: "host"
     environment:
       - DISPLAY=${DISPLAY}
       - ROS_DOMAIN_ID=0
       - ROS_LOCALHOST_ONLY=0
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix   # Forward X11 for GUI apps
-      - ./ros2_ws:/root/ros2_ws         # Mount host workspace
+      - /tmp/.X11-unix:/tmp/.X11-unix   # X11 GUI forwarding
+      - ./ros2_ws:/root/ros2_ws         # Workspace persistence
     working_dir: /root/ros2_ws
     tty: true
     stdin_open: true
@@ -54,18 +55,16 @@ services:
                exec bash"
 ```
 
-### 3️⃣ Start Container
+### 1.3 Start Docker Container
 
 ```bash
 docker-compose up -d
 docker-compose exec ros2-desktop bash
 ```
 
-* Container starts with **ROS2 sourced automatically** and workspace mounted.
+* Container starts with ROS2 sourced and workspace mounted.
 
-### 4️⃣ Workspace Setup
-
-Inside container:
+### 1.4 Create ROS2 Package Inside Container
 
 ```bash
 cd ~/ros2_ws/src
@@ -84,36 +83,62 @@ source install/setup.bash
 
 ---
 
-## VM Setup (Ubuntu)
+## 2️⃣ VirtualBox VM Setup
 
-1. Install ROS2 Humble.
-2. Set same `ROS_DOMAIN_ID`:
+### 2.1 Network Adapter
+
+* Use **Bridged Adapter** in VirtualBox for VM networking.
+* Check IP inside VM:
+
+```bash
+hostname -I
+```
+
+### 2.2 ROS2 Environment
+
+* Install ROS2 Humble.
+* Set same ROS\_DOMAIN\_ID as host:
 
 ```bash
 export ROS_DOMAIN_ID=0
 ```
 
-3. Ensure networking: Bridged Adapter, check IP: `hostname -I`
+### 2.3 Firewall (UFW)
 
-4. Open ROS2 discovery UDP ports if firewall active (UFW):
+Check UFW status:
+
+```bash
+sudo ufw status
+```
+
+* If active, open ROS2 discovery ports:
 
 ```bash
 sudo ufw allow 7400:7500/udp
 sudo ufw reload
 ```
 
+* If inactive, nothing to do.
+
 ---
 
-## Host-VM Communication
+## 3️⃣ Host-VM Communication Test
 
-1. Ping test:
+### 3.1 Ping Test
+
+From host/container:
 
 ```bash
-ping <VM_IP>    # from host/container
-ping <host_IP>  # from VM
+ping <VM_IP>
 ```
 
-2. Run ROS2 test nodes:
+From VM:
+
+```bash
+ping <host_IP>
+```
+
+### 3.2 ROS2 Test Nodes
 
 * On container/host:
 
@@ -129,7 +154,7 @@ ros2 run demo_nodes_cpp listener
 
 * `listener` should receive messages from `talker`.
 
-3. Verify nodes:
+Verify nodes:
 
 ```bash
 ros2 node list
@@ -137,9 +162,9 @@ ros2 node list
 
 ---
 
-## Quick Launch Script
+## 4️⃣ Quick Launch Script for Docker ROS2
 
-Create `run_ros.sh` in `ros2_setup`:
+Create `run_ros.sh` in `~/ros2_setup`:
 
 ```bash
 #!/bin/bash
@@ -150,21 +175,31 @@ docker-compose exec ros2-desktop bash -c "source /opt/ros/humble/setup.bash && \
                                         exec bash"
 ```
 
-Make executable and run:
+Make it executable:
 
 ```bash
 chmod +x run_ros.sh
+```
+
+Run with:
+
+```bash
 ./run_ros.sh
 ```
 
+* Provides direct access to container with ROS2 workspace sourced.
+
 ---
 
-## Notes
+## 5️⃣ Notes & Best Practices
 
-* Always ensure **same ROS\_DOMAIN\_ID** across host, Docker, and VM.
-* Use **network\_mode: host** for DDS discovery in Docker.
-* Mount your workspace to persist code outside container.
+* Always **keep ROS\_DOMAIN\_ID same** across host, Docker, and VM.
+* Use **network\_mode: host** in Docker for proper DDS discovery.
+* Mount workspace to persist code outside Docker container.
 * GUI tools like `rqt_graph` work via X11 forwarding.
+* When using UFW, only open necessary ports for DDS (7400-7500/UDP).
+* Bridged Adapter ensures VM is reachable by host and container.
+* Quick launch script saves time for repeated container access.
 
 ---
 
